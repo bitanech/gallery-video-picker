@@ -5,7 +5,7 @@ export default {
   output: {
     file: 'dist/plugin.js',
     format: 'iife',
-    name: 'galleryVideoPicker', // TODO: change this
+    name: 'galleryVideoPicker',
     globals: {
       '@capacitor/core': 'capacitorExports',
     },
