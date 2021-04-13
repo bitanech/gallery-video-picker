@@ -4,6 +4,11 @@ declare module '@capacitor/core' {
   }
 }
 
+export enum PickerVideoType {
+  CAMERA,
+  GALLERY
+}
+
 export interface PickerVideoOptions {
   readonly sizeLimit: number;
   readonly textPermission: string;
@@ -19,6 +24,11 @@ export interface PickerVideoResults {
   readonly type: string;
 }
 
+export interface PickerVideoPermissions {
+  readonly permissionType: PickerVideoType;
+}
+
 export interface GalleryVideoPickerPlugin {
   getVideoFromGallery(options: PickerVideoOptions): Promise<PickerVideoResults>;
+  getPermissions(options: PickerVideoPermissions): Promise<any>;
 }
