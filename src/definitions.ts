@@ -12,7 +12,6 @@ export enum PickerVideoType {
 export interface PickerVideoOptions {
   readonly sizeLimit: number;
   readonly source: PickerVideoType;
-  readonly durationLimit: number;
   readonly duration: number;
   readonly quality: number;
 }

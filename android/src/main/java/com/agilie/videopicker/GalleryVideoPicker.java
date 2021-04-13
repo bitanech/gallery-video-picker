@@ -111,7 +111,7 @@ public class GalleryVideoPicker extends Plugin {
                 long duration = getDuration(videoUri);
 
                 JSObject ret = new JSObject();
-                int reqDuration = savedCall.getInt("durationLimit");
+                int reqDuration = savedCall.getInt("duration");
 
                 if (duration > reqDuration) {
                     savedCall.reject("File is very large");
