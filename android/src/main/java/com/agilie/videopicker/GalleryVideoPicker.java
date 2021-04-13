@@ -10,6 +10,7 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.webkit.MimeTypeMap;
 
 import com.getcapacitor.JSObject;
@@ -24,30 +25,70 @@ import java.util.concurrent.TimeUnit;
 import static android.app.Activity.RESULT_OK;
 
 @NativePlugin(
-        permissions = {
-                Manifest.permission.READ_EXTERNAL_STORAGE
-        },
-        requestCodes = {GalleryVideoPicker.PICK_FROM_GALLERY, GalleryVideoPicker.REQUEST_TAKE_GALLERY_VIDEO}
+    permissions = {
+        Manifest.permission.READ_EXTERNAL_STORAGE,
+        Manifest.permission.CAMERA
+    },
+    requestCodes = {
+        GalleryVideoPicker.PICK_FROM_GALLERY,
+        GalleryVideoPicker.REQUEST_TAKE_GALLERY_PERMISSION,
+        GalleryVideoPicker.REQUEST_TAKE_VIDEO_PERMISSION
+    }
 )
 public class GalleryVideoPicker extends Plugin {
-    public static final int REQUEST_TAKE_GALLERY_VIDEO = 3145;
+    public static final int REQUEST_TAKE_GALLERY_PERMISSION = 3145;
+    public static final int REQUEST_TAKE_VIDEO_PERMISSION = 3146;
     public static final int PICK_FROM_GALLERY = 1213;
+
+    public static final int CAMERA_CODE = 0;
+    public static final int GALLERY_CODE = 1;
+
+    @PluginMethod()
+    public void getPermissions(PluginCall call) {
+        int reqCode = call.getInt("permissionType");
+
+        if (reqCode == CAMERA_CODE) {
+            saveCall(call);
+            permissionsRequest(Manifest.permission.CAMERA, GalleryVideoPicker.REQUEST_TAKE_VIDEO_PERMISSION, call);
+        }
+
+        if (reqCode == GALLERY_CODE) {
+            saveCall(call);
+            permissionsRequest(Manifest.permission.READ_EXTERNAL_STORAGE, GalleryVideoPicker.REQUEST_TAKE_GALLERY_PERMISSION, call);
+        }
+    }
 
     @PluginMethod
     public void getVideoFromGallery(PluginCall call) {
-        if (!hasRequiredPermissions()) {
-            pluginRequestPermission(Manifest.permission.READ_EXTERNAL_STORAGE, GalleryVideoPicker.REQUEST_TAKE_GALLERY_VIDEO);
-            return;
+        int reqSizeLimit = call.getInt("sizeLimit");
+        int reqQuality = call.getInt("quality");
+        int reqDuration = call.getInt("duration");
+        int reqSource = call.getInt("source");
+        Intent intent;
+
+        if (reqSource == CAMERA_CODE) {
+            intent = new Intent(android.provider.MediaStore.ACTION_VIDEO_CAPTURE);
+            intent.putExtra("android.intent.extra.durationLimit", reqDuration);
+            intent.putExtra("android.intent.extra.videoQuality", reqQuality);
+            saveCall(call);
+            startActivityForResult(call, intent, GalleryVideoPicker.PICK_FROM_GALLERY);
         }
 
-        if (hasRequiredPermissions()) {
-            callIntent(call);
-        } else {
-            String reqPermission = call.getString("textPermission");
-            call.reject(reqPermission);
+        if (reqSource == GALLERY_CODE) {
+            intent = new Intent(Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
+            intent.putExtra(MediaStore.EXTRA_SIZE_LIMIT, reqSizeLimit);
+            saveCall(call);
+            startActivityForResult(call, intent, GalleryVideoPicker.PICK_FROM_GALLERY);
         }
+    }
 
-        saveCall(call);
+    @PluginMethod
+    public void openSettings(PluginCall call) {
+        Intent intent = new Intent();
+        intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        Uri uri = Uri.fromParts("package", this.bridge.getActivity().getPackageName(), null);
+        intent.setData(uri);
+        this.bridge.getActivity().startActivity(intent);
     }
 
     @Override
@@ -71,10 +112,9 @@ public class GalleryVideoPicker extends Plugin {
 
                 JSObject ret = new JSObject();
                 int reqDuration = savedCall.getInt("durationLimit");
-                String reqDurationError = savedCall.getString("textMaxVideoSize");
 
                 if (duration > reqDuration) {
-                    savedCall.reject(reqDurationError);
+                    savedCall.reject("File is very large");
                     return;
                 }
 
@@ -104,7 +144,7 @@ public class GalleryVideoPicker extends Plugin {
             String sel = MediaStore.Images.Media._ID + "=?";
 
             Cursor cursor = context.getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    column, sel, new String[]{id}, null);
+                column, sel, new String[]{id}, null);
 
             int columnIndex = cursor.getColumnIndex(column[0]);
 
@@ -124,7 +164,7 @@ public class GalleryVideoPicker extends Plugin {
         String[] proj = { MediaStore.Images.Media.DATA };
         Cursor cursor = context.getContentResolver().query(contentUri, proj, null, null, null);
         int column_index
-                = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+            = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
         cursor.moveToFirst();
         return cursor.getString(column_index);
     }
@@ -136,9 +176,9 @@ public class GalleryVideoPicker extends Plugin {
             mimeType = cr.getType(uri);
         } else {
             String fileExtension = MimeTypeMap.getFileExtensionFromUrl(uri
-                    .toString());
+                .toString());
             mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(
-                    fileExtension.toLowerCase());
+                fileExtension.toLowerCase());
         }
         return mimeType;
     }
@@ -153,26 +193,28 @@ public class GalleryVideoPicker extends Plugin {
     @Override
     protected void handleRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.handleRequestPermissionsResult(requestCode, permissions, grantResults);
-        PluginCall savedCall = getSavedCall();
-        for(int result : grantResults) {
 
-            if (result == PackageManager.PERMISSION_DENIED) {
-                String reqPermission = savedCall.getString("textPermission");
-                savedCall.reject(reqPermission);
-                return;
+        PluginCall savedCall = getSavedCall();
+
+        if (requestCode == REQUEST_TAKE_GALLERY_PERMISSION || requestCode == REQUEST_TAKE_VIDEO_PERMISSION) {
+            for(int result : grantResults) {
+
+                if (result == PackageManager.PERMISSION_DENIED) {
+                    savedCall.reject("Permission denied");
+                    return;
+                }
             }
         }
+    }
 
-        if (requestCode == REQUEST_TAKE_GALLERY_VIDEO) {
-            callIntent(savedCall);
+    private void permissionsRequest(String permission, int code, PluginCall call) {
+        if (!hasRequiredPermissions()) {
+            pluginRequestPermissions(new String[] { permission }, code);
+        } else {
+            JSObject result = new JSObject();
+            result.put("granted", true);
+            result.put("permission", permission);
+            call.success(result);
         }
     }
-
-    private void callIntent(PluginCall call) {
-        int reqSizeLimit = call.getInt("sizeLimit");
-        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
-        intent.putExtra(MediaStore.EXTRA_SIZE_LIMIT, reqSizeLimit);
-        startActivityForResult(call, intent, GalleryVideoPicker.PICK_FROM_GALLERY);
-    }
-
 }
