@@ -23,6 +23,10 @@ export class GalleryVideoPickerWeb extends WebPlugin implements GalleryVideoPick
     console.log(options);
     return { error: 'Unsupported' };
   }
+
+  async openSettings(): Promise<any> {
+    return { error: 'Unsupported' };
+  }
 }
 
 const GalleryVideoPicker = new GalleryVideoPickerWeb();

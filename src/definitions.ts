@@ -32,4 +32,5 @@ export interface PickerVideoPermissions {
 export interface GalleryVideoPickerPlugin {
   getVideoFromGallery(options: PickerVideoOptions): Promise<PickerVideoResults>;
   getPermissions(options: PickerVideoPermissions): Promise<any>;
+  openSettings(): Promise<any>;
 }
