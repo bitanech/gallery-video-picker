@@ -1,6 +1,6 @@
 {
   "name": "gallery-video-picker",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "This plugin is used to get video from gallery",
   "main": "dist/plugin.js",
   "module": "dist/esm/index.js",
