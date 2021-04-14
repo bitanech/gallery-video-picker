@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.util.Log;
 import android.webkit.MimeTypeMap;
 
 import com.getcapacitor.JSObject;
@@ -61,12 +62,12 @@ public class GalleryVideoPicker extends Plugin {
     @PluginMethod
     public void getVideoFromGallery(PluginCall call) {
         int reqSizeLimit = call.getInt("sizeLimit");
-        int reqQuality = call.getInt("quality");
-        int reqDuration = call.getInt("duration");
         int reqSource = call.getInt("source");
         Intent intent;
 
         if (reqSource == CAMERA_CODE) {
+            float reqQuality = call.getFloat("quality");
+            int reqDuration = call.getInt("duration");
             intent = new Intent(android.provider.MediaStore.ACTION_VIDEO_CAPTURE);
             intent.putExtra("android.intent.extra.durationLimit", reqDuration);
             intent.putExtra("android.intent.extra.videoQuality", reqQuality);
@@ -196,6 +197,8 @@ public class GalleryVideoPicker extends Plugin {
 
         PluginCall savedCall = getSavedCall();
 
+        Log.d("CODE", String.valueOf(requestCode));
+
         if (requestCode == REQUEST_TAKE_GALLERY_PERMISSION || requestCode == REQUEST_TAKE_VIDEO_PERMISSION) {
             for(int result : grantResults) {
 
@@ -204,11 +207,14 @@ public class GalleryVideoPicker extends Plugin {
                     return;
                 }
             }
+
+            JSObject result = new JSObject();
+            savedCall.success(result);
         }
     }
 
     private void permissionsRequest(String permission, int code, PluginCall call) {
-        if (!hasRequiredPermissions()) {
+        if (!hasPermission(permission)) {
             pluginRequestPermissions(new String[] { permission }, code);
         } else {
             JSObject result = new JSObject();
